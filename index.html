@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Snake + Wordle (Prototype)</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#111">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Snake + Wordle</h1>
+      <div class="buttons">
+        <button id="btnPause" aria-label="Pause">⏸</button>
+        <button id="btnNew" aria-label="New Game">↻</button>
+      </div>
+    </header>
+
+    <main>
+      <canvas id="board" width="360" height="480" aria-label="Game board" role="img"></canvas>
+
+      <section id="panel">
+        <div id="status"></div>
+        <div id="guesses" aria-live="polite" aria-atomic="true"></div>
+        <div id="controls" class="controls">
+          <button data-dir="up" aria-label="Up">▲</button>
+          <div class="row">
+            <button data-dir="left" aria-label="Left">◀</button>
+            <button data-dir="down" aria-label="Down">▼</button>
+            <button data-dir="right" aria-label="Right">▶</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <small>Prototype. Add to Home Screen to play full-screen offline.</small>
+    </footer>
+  </div>
+
+  <script src="words.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
