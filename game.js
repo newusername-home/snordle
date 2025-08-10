@@ -1,8 +1,9 @@
-/* Snake + Wordle (robust boot + unlimited lives + Continue + pocket + mobile fix)
-   - Detects/loads words.js if WORD_LIST isn't present (no module/exports needed).
+/* Snake + Wordle (robust boot + unlimited lives + Continue + pocket + mobile fix + next-letter guarantee)
+   - Detects/loads words.js if WORD_LIST isn't present (no modules/exports needed).
    - Unlimited lives: crash pauses; press "Continue" to resume same word.
    - Crash counter on panel; live pocket preview.
    - Uses visualViewport to stabilise canvas size on mobile.
+   - Guarantees the next correct-by-position letter is always available on the board.
 */
 
 console.log("[Game] Starting game.js…");
@@ -22,8 +23,8 @@ console.log("[Game] Starting game.js…");
   if (!document.getElementById('words-loader')) {
     const s = document.createElement('script');
     s.id = 'words-loader';
-    s.src = 'words.js?v=11';   // cache-bust
-    s.async = false;           // keep order
+    s.src = 'words.js?v=12';     // cache-bust
+    s.async = false;             // preserve order
     s.onload = () => {
       if (hasWordList()) {
         console.log(`[Game] words.js loaded (${WORD_LIST.length} words). Booting…`);
@@ -61,15 +62,15 @@ function startGame() {
   }
 
   // Elements
-  const canvas       = document.getElementById('board');
-  const ctx          = canvas.getContext('2d');
-  const statusEl     = document.getElementById('status');
-  const guessesEl    = document.getElementById('guesses');
-  const pocketEl     = document.getElementById('pocket');
-  const deathsEl     = document.getElementById('deaths');
-  const btnNew       = document.getElementById('btnNew');
-  const btnPause     = document.getElementById('btnPause');
-  const btnContinue  = document.getElementById('btnContinue');
+  const canvas         = document.getElementById('board');
+  const ctx            = canvas.getContext('2d');
+  const statusEl       = document.getElementById('status');
+  const guessesEl      = document.getElementById('guesses');
+  const pocketEl       = document.getElementById('pocket');
+  const deathsEl       = document.getElementById('deaths');
+  const btnNew         = document.getElementById('btnNew');
+  const btnPause       = document.getElementById('btnPause');
+  const btnContinue    = document.getElementById('btnContinue');
   const controlButtons = document.querySelectorAll('#controls [data-dir]');
 
   // Grid
@@ -102,6 +103,47 @@ function startGame() {
     const idx = Math.floor(rng() * (WORD_LIST.length/2)); // mild bias to first half
     return WORD_LIST[idx].toUpperCase();
   }
+
+  function coordsEqual(a,b){ return a.x===b.x && a.y===b.y; }
+
+  function randomEmptyCell() {
+    let guard = 0;
+    while (guard++ < 2000) {
+      const p = {x:Math.floor(rng()*COLS), y:Math.floor(rng()*ROWS)};
+      if (!snake.some(s => coordsEqual(s,p)) && !letters.some(l => l.x===p.x && l.y===p.y)) return p;
+    }
+    return {x:0,y:0}; // extreme fallback
+  }
+
+  // --- Spawning helpers ---
+  function spawnLetter(ch) {
+    const p = randomEmptyCell();
+    letters.push({ x: p.x, y: p.y, ch });
+  }
+
+  // Keep randomness but ensure the next correct-by-position letter is present
+  function ensureNextCorrectLetterAvailable() {
+    if (guessLetters.length >= 5) return;          // committing soon
+    const need = target[guessLetters.length];       // required letter for this position
+    if (!need) return;
+    const present = letters.some(l => l.ch === need);
+    if (!present) spawnLetter(need);
+  }
+
+  function spawnLetters(n = 1) {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    for (let i = 0; i < n; i++) {
+      const p = randomEmptyCell();
+      // mild bias to any target letters not yet used in pocket
+      const needed = target.split('').filter(ch => !guessLetters.includes(ch));
+      const ch = (rng() < 0.5 && needed.length > 0)
+        ? needed[Math.floor(rng() * needed.length)]
+        : alphabet[Math.floor(rng() * alphabet.length)];
+      letters.push({ x: p.x, y: p.y, ch });
+    }
+    ensureNextCorrectLetterAvailable(); // hard guarantee
+  }
+  // ------------------------
 
   function reset() {
     console.log("[Game] Resetting state…");
@@ -145,31 +187,8 @@ function startGame() {
     hideContinue();
 
     spawnLetters(7);
+    ensureNextCorrectLetterAvailable(); // guarantee at start
     draw();
-  }
-
-  function coordsEqual(a,b){ return a.x===b.x && a.y===b.y; }
-
-  function randomEmptyCell() {
-    let guard = 0;
-    while (guard++ < 1000) {
-      const p = {x:Math.floor(rng()*COLS), y:Math.floor(rng()*ROWS)};
-      if (!snake.some(s => coordsEqual(s,p)) && !letters.some(l => l.x===p.x && l.y===p.y)) return p;
-    }
-    return {x:0,y:0}; // extreme fallback
-  }
-
-  function spawnLetters(n=1) {
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    for (let i=0;i<n;i++) {
-      const p = randomEmptyCell();
-      // mild bias to letters in target not yet in pocket
-      const needed = target.split('').filter(ch => !guessLetters.includes(ch));
-      const ch = (rng()<0.6 && needed.length>0)
-        ? needed[Math.floor(rng()*needed.length)]
-        : alphabet[Math.floor(rng()*alphabet.length)];
-      letters.push({x:p.x, y:p.y, ch});
-    }
   }
 
   function tick(dt) {
@@ -199,6 +218,7 @@ function startGame() {
       guessLetters.push(ch);
       spawnLetters(1); // maintain density
       updatePocket();
+      ensureNextCorrectLetterAvailable(); // guarantee after pickup
       if (guessLetters.length===5) commitGuess();
     } else {
       snake.pop(); // no growth
@@ -218,6 +238,7 @@ function startGame() {
     dir = {x:1,y:0};
     queuedDir = null;
 
+    ensureNextCorrectLetterAvailable(); // guarantee on crash reset
     showContinue();
   }
 
@@ -248,6 +269,7 @@ function startGame() {
       statusEl.textContent = `Out of guesses. Word: ${target}. Crashes: ${deaths}`;
     } else {
       statusEl.textContent = 'Keep going.';
+      ensureNextCorrectLetterAvailable(); // guarantee for new position
     }
   }
 
@@ -359,6 +381,7 @@ function startGame() {
     awaitingContinue = false;
     statusEl.textContent = 'Continue… collect letters.';
     hideContinue();
+    ensureNextCorrectLetterAvailable(); // keep guarantee after resuming
   }
   btnContinue.addEventListener('click', doContinue);
 
