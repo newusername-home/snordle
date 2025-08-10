@@ -20,28 +20,26 @@
     </header>
 
     <main>
+      <!-- Game board -->
       <canvas id="board" width="360" height="480" aria-label="Game board" role="img"></canvas>
 
-      <section id="panel">
-        <div id="status"></div>
-        
+      <!-- Right panel -->
+      <section id="panel" aria-label="Game panel">
+        <div id="status" aria-live="polite" aria-atomic="true"></div>
 
-<!-- Stats row -->
-<div id="stats">
-  <div class="stat"><span>Crashes</span> <strong id="deaths">0</strong></div>
-</div>
+        <!-- Stats -->
+        <div id="stats">
+          <div class="stat"><span>Crashes</span> <strong id="deaths">0</strong></div>
+        </div>
 
-<!-- Live pocket preview -->
-<div id="pocket" aria-label="Current Letters"></div>
-
-<div id="guesses" aria-live="polite" aria-atomic="true"></div>
-
-        <!-- Live pocket preview -->
+        <!-- Live pocket preview (current letters before submitting a guess) -->
         <div id="pocket" aria-label="Current Letters"></div>
-        
+
+        <!-- Guess grid (scored like Wordle) -->
         <div id="guesses" aria-live="polite" aria-atomic="true"></div>
 
-        <div id="controls" class="controls">
+        <!-- On-screen controls -->
+        <div id="controls" class="controls" aria-label="Directional controls">
           <button data-dir="up" aria-label="Up">▲</button>
           <div class="row">
             <button data-dir="left" aria-label="Left">◀</button>
@@ -50,14 +48,3 @@
           </div>
         </div>
       </section>
-    </main>
-
-    <footer>
-      <small>Prototype. Add to Home Screen to play full-screen offline.</small>
-    </footer>
-  </div>
-
-  <script src="words.js"></script>
-  <script src="game.js"></script>
-</body>
-</html>
