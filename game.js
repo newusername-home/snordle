@@ -235,16 +235,21 @@
   // Resize handling: keep crisp on mobile
 function fitCanvas() {
   const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
 
-  // Backing store in device pixels
-  canvas.width  = Math.round(rect.width  * dpr);
-  canvas.height = Math.round(rect.height * dpr);
+  // Effective pixel ratio = hardware DPR × page zoom
+  const zoom = (window.visualViewport && typeof window.visualViewport.scale === 'number')
+    ? window.visualViewport.scale
+    : 1;
+  const dpr = (window.devicePixelRatio || 1) * zoom;
 
-  // Draw in CSS pixels
+  // Backing store in *device* pixels…
+  canvas.width  = Math.max(1, Math.round(rect.width  * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+
+  // …but draw coordinates in *CSS* pixels (1 unit == 1 CSS px)
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  // Compute layout in CSS pixels
+  // IMPORTANT: layout math in CSS pixels (rect.*)
   cell = Math.floor(Math.min(rect.width / COLS, rect.height / ROWS));
   offsetX = Math.floor((rect.width  - cell * COLS) / 2);
   offsetY = Math.floor((rect.height - cell * ROWS) / 2);
@@ -255,6 +260,18 @@ function fitCanvas() {
 
   const ro = new ResizeObserver(fitCanvas); ro.observe(canvas);
 
+
+   if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => fitCanvas(), { passive: true });
+  window.visualViewport.addEventListener('scroll',  () => fitCanvas(), { passive: true });
+}
+
+   let _t;
+function scheduleFit() { clearTimeout(_t); _t = setTimeout(fitCanvas, 50); }
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', scheduleFit, { passive: true });
+  window.visualViewport.addEventListener('scroll',  scheduleFit, { passive: true });
+}
   // Init
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js');
