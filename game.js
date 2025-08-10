@@ -1,31 +1,30 @@
 /* Snake + Wordle hybrid (prototype)
    - Mobile-friendly touch controls (swipe or buttons)
    - 12x16 grid. Letters spawn as pellets. Collect 5 -> evaluate Wordle guess.
-   - 6 attempts. Hit wall/self = game over.
-   - PWA-ready (see manifest + sw.js). */
+   - Unlimited lives: crashes just reset the snake and increment a crash counter.
+   - 6 attempts for the word. PWA-ready (see manifest + sw.js).
+*/
 
 (() => {
-  const canvas = document.getElementById('board');
-  const ctx = canvas.getContext('2d');
-  const statusEl = document.getElementById('status');
+  const canvas    = document.getElementById('board');
+  const ctx       = canvas.getContext('2d');
+  const statusEl  = document.getElementById('status');
   const guessesEl = document.getElementById('guesses');
-  const pocketEl = document.getElementById('pocket');
-
-  const btnNew = document.getElementById('btnNew');
-  const btnPause = document.getElementById('btnPause');
+  const pocketEl  = document.getElementById('pocket');
+  const deathsEl  = document.getElementById('deaths');
+  const btnNew    = document.getElementById('btnNew');
+  const btnPause  = document.getElementById('btnPause');
   const controlButtons = document.querySelectorAll('#controls [data-dir]');
 
   // Grid
   const COLS = 12, ROWS = 16;
-  let cell = Math.floor(Math.min(canvas.width / COLS, canvas.height / ROWS));
-  let offsetX = Math.floor((canvas.width - cell * COLS)/2);
-  let offsetY = Math.floor((canvas.height - cell * ROWS)/2);
+  let cell = 0, offsetX = 0, offsetY = 0;
 
   // Game state
   const MAX_GUESSES = 6;
   let rng = (seed => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2**32)(Date.now() >>> 0);
   let target = pickTarget();
-  let snake, dir, queuedDir, letters, guessLetters, guesses, over, paused, lastTime, speedMs;
+  let snake, dir, queuedDir, letters, guessLetters, guesses, paused, lastTime, speedMs, deaths;
 
   function reset() {
     target = pickTarget();
@@ -35,25 +34,31 @@
     letters = [];
     guessLetters = [];
     guesses = [];
-    over = false; paused = false;
+    deaths = 0;
+    paused = false;
     lastTime = performance.now();
     speedMs = 140;
-    statusEl.textContent = 'Collect letters to form a guess.';
-     // Create empty pocket display
-pocketEl.innerHTML = '';
-for (let i = 0; i < 5; i++) {
-  const d = document.createElement('div');
-  d.className = 'tile';
-  d.textContent = '';
-  pocketEl.appendChild(d);
-}
 
+    statusEl.textContent = 'Collect letters to form a guess.';
+    // Reset guesses grid
     guessesEl.innerHTML = '';
     for (let i=0;i<MAX_GUESSES*5;i++) {
       const d = document.createElement('div');
-      d.className = 'tile'; d.textContent = '';
+      d.className = 'tile';
+      d.textContent = '';
       guessesEl.appendChild(d);
     }
+    // Pocket display (5 slots)
+    pocketEl.innerHTML = '';
+    for (let i=0;i<5;i++) {
+      const d = document.createElement('div');
+      d.className = 'tile';
+      d.textContent = '';
+      pocketEl.appendChild(d);
+    }
+    updatePocket();
+    updateStats();
+
     spawnLetters(7);
     draw();
   }
@@ -85,48 +90,62 @@ for (let i = 0; i < 5; i++) {
   }
 
   function tick(dt) {
-    if (paused || over) return;
+    if (paused) return;
     if (dt < speedMs) return;
 
     // apply direction
     if (queuedDir) { dir = queuedDir; queuedDir = null; }
-    const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+    const nextHead = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
 
-    // collisions
-    if (head.x<0 || head.y<0 || head.x>=COLS || head.y>=ROWS || snake.some(s=>coordsEqual(s,head))) {
-      gameOver(false, 'Crashed');
+    // collisions -> unlimited lives: register crash, reset snake only
+    const hitWall = nextHead.x<0 || nextHead.y<0 || nextHead.x>=COLS || nextHead.y>=ROWS;
+    const hitSelf = snake.some(s=>coordsEqual(s,nextHead));
+    if (hitWall || hitSelf) {
+      crashReset(hitWall ? 'Wall' : 'Self');
+      draw();
       return;
     }
 
-    snake.unshift(head);
+    // move
+    snake.unshift(nextHead);
+
     // eat letter?
-    const idx = letters.findIndex(l => l.x===head.x && l.y===head.y);
+    const idx = letters.findIndex(l => l.x===nextHead.x && l.y===nextHead.y);
     if (idx>=0) {
       const ch = letters[idx].ch;
       letters.splice(idx,1);
       guessLetters.push(ch);
       spawnLetters(1); // maintain density
+      updatePocket();
       if (guessLetters.length===5) {
         commitGuess();
       }
     } else {
-      snake.pop(); // no growth
+      // no growth
+      snake.pop();
     }
     draw();
-     updatePocket();
+  }
 
+  // Crash handling: increment counter, reset snake to centre; keep letters, guesses, and pocket as-is
+  function crashReset(reason) {
+    deaths++;
+    updateStats();
+    statusEl.textContent = `Crash (${deaths}) — keep going.`;
+    // brief pause to avoid instant re-crash
+    paused = true;
+    // Reset snake back to centre, facing right
+    snake = [{x: Math.floor(COLS/2), y: Math.floor(ROWS/2)}];
+    dir = {x:1,y:0};
+    queuedDir = null;
+    setTimeout(()=>{ paused = false; }, 250);
   }
-function updatePocket() {
-  for (let i = 0; i < 5; i++) {
-    const tile = pocketEl.children[i];
-    tile.textContent = guessLetters[i] || '';
-  }
-}
 
   function commitGuess() {
     const guess = guessLetters.join('');
     const row = guesses.length;
     const startIdx = row*5;
+
     // Show letters
     for (let i=0;i<5;i++) {
       const tile = guessesEl.children[startIdx+i];
@@ -140,12 +159,14 @@ function updatePocket() {
     }
     guesses.push({word:guess, res});
     guessLetters = [];
-     updatePocket();
+    updatePocket();
 
     if (guess===target) {
-      gameOver(true, 'You solved it!');
+      statusEl.textContent = `You solved it! Crashes: ${deaths}`;
+      // Game continues if you want to keep roaming; you can call reset() here if you prefer a new word automatically.
     } else if (guesses.length>=MAX_GUESSES) {
-      gameOver(false, `Out of guesses. Word: ${target}`);
+      statusEl.textContent = `Out of guesses. Word: ${target}. Crashes: ${deaths}`;
+      // You can optionally pause input here; leaving it playable.
     } else {
       statusEl.textContent = 'Keep going.';
     }
@@ -165,9 +186,17 @@ function updatePocket() {
     return res;
   }
 
-  function gameOver(win, msg) {
-    over = true;
-    statusEl.textContent = msg;
+  function updatePocket() {
+    for (let i=0;i<5;i++) {
+      const tile = pocketEl.children[i];
+      tile.textContent = guessLetters[i] || '';
+      // ensure no old scoring classes leak into pocket tiles
+      tile.classList.remove('correct','present','absent');
+    }
+  }
+
+  function updateStats() {
+    if (deathsEl) deathsEl.textContent = String(deaths);
   }
 
   // Rendering
@@ -195,21 +224,15 @@ function updatePocket() {
     });
     // snake
     ctx.fillStyle = '#3a6';
-    snake.forEach((s,i)=>{
+    snake.forEach(s=>{
       ctx.fillRect(offsetX + s.x*cell+2, offsetY + s.y*cell+2, cell-4, cell-4);
     });
-
-    // current pocket letters preview (in status)
-    if (!over) {
-      const preview = guessLetters.join('');
-      statusEl.textContent = preview ? `Pocket: ${preview}` : statusEl.textContent;
-    }
   }
 
   // Main loop
   function loop(ts) {
     const dt = ts - lastTime;
-    if (!paused && !over) tick(dt);
+    if (!paused) tick(dt);
     if (ts - lastTime >= speedMs) lastTime = ts;
     requestAnimationFrame(loop);
   }
@@ -249,54 +272,42 @@ function updatePocket() {
     queuedDir = nd;
   }
 
-  // Buttons
-  btnNew.addEventListener('click', () => reset());
-  btnPause.addEventListener('click', () => { paused = !paused; btnPause.textContent = paused?'▶':'⏸'; });
+  // Canvas sizing with visual viewport & page zoom
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const zoom = (window.visualViewport && typeof window.visualViewport.scale === 'number')
+      ? window.visualViewport.scale
+      : 1;
+    const dpr = (window.devicePixelRatio || 1) * zoom;
 
-  // Resize handling: keep crisp on mobile
-function fitCanvas() {
-  const rect = canvas.getBoundingClientRect();
+    // Backing store in device pixels
+    canvas.width  = Math.max(1, Math.round(rect.width  * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
 
-  // Effective pixel ratio = hardware DPR × page zoom
-  const zoom = (window.visualViewport && typeof window.visualViewport.scale === 'number')
-    ? window.visualViewport.scale
-    : 1;
-  const dpr = (window.devicePixelRatio || 1) * zoom;
+    // Draw in CSS pixels
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  // Backing store in *device* pixels…
-  canvas.width  = Math.max(1, Math.round(rect.width  * dpr));
-  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    // Layout in CSS pixels
+    cell = Math.floor(Math.min(rect.width / COLS, rect.height / ROWS));
+    offsetX = Math.floor((rect.width  - cell * COLS) / 2);
+    offsetY = Math.floor((rect.height - cell * ROWS) / 2);
 
-  // …but draw coordinates in *CSS* pixels (1 unit == 1 CSS px)
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
 
-  // IMPORTANT: layout math in CSS pixels (rect.*)
-  cell = Math.floor(Math.min(rect.width / COLS, rect.height / ROWS));
-  offsetX = Math.floor((rect.width  - cell * COLS) / 2);
-  offsetY = Math.floor((rect.height - cell * ROWS) / 2);
+  let _t;
+  function scheduleFit(){ clearTimeout(_t); _t = setTimeout(fitCanvas, 50); }
+  const ro = new ResizeObserver(scheduleFit); ro.observe(canvas);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', scheduleFit, { passive: true });
+    window.visualViewport.addEventListener('scroll',  scheduleFit, { passive: true });
+  }
 
-  draw();
-}
-
-
-  const ro = new ResizeObserver(fitCanvas); ro.observe(canvas);
-
-
-   if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', () => fitCanvas(), { passive: true });
-  window.visualViewport.addEventListener('scroll',  () => fitCanvas(), { passive: true });
-}
-
-   let _t;
-function scheduleFit() { clearTimeout(_t); _t = setTimeout(fitCanvas, 50); }
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', scheduleFit, { passive: true });
-  window.visualViewport.addEventListener('scroll',  scheduleFit, { passive: true });
-}
   // Init
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js');
   }
+  fitCanvas();
   reset();
   requestAnimationFrame(loop);
 })();
