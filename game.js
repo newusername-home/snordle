@@ -1,9 +1,10 @@
-/* Snake + Wordle (robust boot + unlimited lives + Continue + pocket + mobile fix + next-letter guarantee)
+/* Snake + Wordle (robust boot + unlimited lives + Continue + pocket + mobile fix + next-letter guarantee + win flag + countdown)
    - Detects/loads words.js if WORD_LIST isn't present (no modules/exports needed).
-   - Unlimited lives: crash pauses; press "Continue" to resume same word.
+   - Unlimited lives: crash pauses; press "Continue" to queue a 3s countdown and resume same word.
    - Crash counter on panel; live pocket preview.
    - Uses visualViewport to stabilise canvas size on mobile.
    - Guarantees the next correct-by-position letter is always available on the board.
+   - Adds a 3-second autostart countdown at new game and after each Continue.
 */
 
 console.log("[Game] Starting game.js…");
@@ -23,7 +24,7 @@ console.log("[Game] Starting game.js…");
   if (!document.getElementById('words-loader')) {
     const s = document.createElement('script');
     s.id = 'words-loader';
-    s.src = 'words.js?v=12';     // cache-bust
+    s.src = 'words.js?v=13';     // cache-bust to avoid stale SW/HTTP cache
     s.async = false;             // preserve order
     s.onload = () => {
       if (hasWordList()) {
@@ -80,19 +81,25 @@ function startGame() {
   // Game state
   const MAX_GUESSES = 6;
   let rng = (seed => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2**32)(Date.now() >>> 0);
-  let target, snake, dir, queuedDir, letters, guessLetters, guesses, paused, lastTime, speedMs, deaths;
-  let awaitingContinue = false; // After crash, require Continue
+  let target, snake, dir, queuedDir, letters, guessLetters, guesses, paused, lastTime, speedMs, deaths, won;
+  let awaitingContinue = false; // True after a crash until user presses Continue
+  // Countdown state
+  let countdownActive = false;
+  let countdownSeconds = 0;
+  let countdownTimerId = null;
+  let countdownPrefix = "Starting in";
 
   // ---- SAFE INITIALISATION BEFORE FIRST fitCanvas() ----
   letters = [];
   snake   = [{ x: Math.floor(COLS/2), y: Math.floor(ROWS/2) }];
   guessLetters = [];
   guesses = [];
-  paused = false;
+  paused = true;                 // paused until initial countdown completes
   awaitingContinue = false;
   lastTime = performance.now();
   speedMs = 140;
   deaths = 0;
+  won = false;
   // ------------------------------------------------------
 
   function pickTarget() {
@@ -145,6 +152,35 @@ function startGame() {
   }
   // ------------------------
 
+  // --- Countdown helpers ---
+  function clearCountdown() {
+    countdownActive = false;
+    if (countdownTimerId) { clearInterval(countdownTimerId); countdownTimerId = null; }
+  }
+
+  function startCountdown(prefix = "Starting in", seconds = 3) {
+    clearCountdown();
+    countdownPrefix = prefix;
+    countdownSeconds = seconds;
+    countdownActive = true;
+    paused = true;            // block movement during countdown
+    statusEl.textContent = `${countdownPrefix} ${countdownSeconds}…`;
+    countdownTimerId = setInterval(() => {
+      countdownSeconds -= 1;
+      if (countdownSeconds > 0) {
+        statusEl.textContent = `${countdownPrefix} ${countdownSeconds}…`;
+      } else {
+        clearCountdown();
+        statusEl.textContent = 'Go!';
+        // resume only if not won/out of guesses and not awaitingContinue
+        if (!won && !awaitingContinue) {
+          paused = false;
+        }
+      }
+    }, 1000);
+  }
+  // -------------------------
+
   function reset() {
     console.log("[Game] Resetting state…");
     target = pickTarget();
@@ -158,10 +194,12 @@ function startGame() {
     guessLetters = [];
     guesses = [];
     deaths = 0;
-    paused = false;
+    paused = true;        // paused until initial countdown finishes
     awaitingContinue = false;
     lastTime = performance.now();
     speedMs = 140;
+    won = false;
+    clearCountdown();
 
     statusEl.textContent = 'Collect letters to form a guess.';
 
@@ -189,10 +227,13 @@ function startGame() {
     spawnLetters(7);
     ensureNextCorrectLetterAvailable(); // guarantee at start
     draw();
+
+    // 3s autostart countdown
+    startCountdown("Starting in", 3);
   }
 
   function tick(dt) {
-    if (paused || awaitingContinue) return;
+    if (paused || awaitingContinue || won || countdownActive) return;
     if (dt < speedMs) return;
 
     if (queuedDir) { dir = queuedDir; queuedDir = null; }
@@ -240,6 +281,7 @@ function startGame() {
 
     ensureNextCorrectLetterAvailable(); // guarantee on crash reset
     showContinue();
+    paused = true;
   }
 
   function commitGuess() {
@@ -255,6 +297,8 @@ function startGame() {
 
     // Score like Wordle
     const res = scoreGuess(guess, target);
+    const isWin = res.every(r => r === 'correct');
+
     for (let i=0;i<5;i++) {
       const tile = guessesEl.children[startIdx+i];
       if (tile) tile.classList.add(res[i]);
@@ -263,10 +307,18 @@ function startGame() {
     guessLetters = [];
     updatePocket();
 
-    if (guess===target) {
+    if (isWin) {
+      won = true;
+      paused = true;
       statusEl.textContent = `You solved it! Crashes: ${deaths}`;
+      hideContinue();
+      clearCountdown();
+      return;
     } else if (guesses.length>=MAX_GUESSES) {
       statusEl.textContent = `Out of guesses. Word: ${target}. Crashes: ${deaths}`;
+      paused = true; // freeze until New Game
+      hideContinue();
+      clearCountdown();
     } else {
       statusEl.textContent = 'Keep going.';
       ensureNextCorrectLetterAvailable(); // guarantee for new position
@@ -335,7 +387,7 @@ function startGame() {
   // Loop
   function loop(ts) {
     const dt = ts - lastTime;
-    if (!paused && !awaitingContinue) tick(dt);
+    if (!paused && !awaitingContinue && !won && !countdownActive) tick(dt);
     if (ts - lastTime >= speedMs) lastTime = ts;
     requestAnimationFrame(loop);
   }
@@ -364,7 +416,7 @@ function startGame() {
     if (k==='ArrowDown'||k==='s') setDir('down');
     if (k==='ArrowLeft'||k==='a') setDir('left');
     if (k==='ArrowRight'||k==='d') setDir('right');
-    if (k==='Enter' && awaitingContinue) doContinue();
+    if (k==='Enter' && awaitingContinue) doContinue(); // Enter triggers Continue
   });
 
   function setDir(d) {
@@ -378,17 +430,20 @@ function startGame() {
   function showContinue(){ btnContinue.hidden = false; }
   function hideContinue(){ btnContinue.hidden = true; }
   function doContinue() {
+    if (!awaitingContinue) return;
     awaitingContinue = false;
-    statusEl.textContent = 'Continue… collect letters.';
     hideContinue();
+    // Queue a 3s countdown before resuming
+    startCountdown("Resuming in", 3);
     ensureNextCorrectLetterAvailable(); // keep guarantee after resuming
   }
   btnContinue.addEventListener('click', doContinue);
 
   btnNew.addEventListener('click', () => reset());
   btnPause.addEventListener('click', () => {
-    if (awaitingContinue) return;
+    if (awaitingContinue || countdownActive || won) return;
     paused = !paused; btnPause.textContent = paused ? '▶' : '⏸';
+    statusEl.textContent = paused ? 'Paused' : 'Go!';
   });
 
   // Canvas sizing with visual viewport & page zoom
