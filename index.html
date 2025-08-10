@@ -2,10 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- Keep canvas stable on mobile -->
+  <!-- Use full screen area on iPhone (accounts for bottom bar) -->
   <meta name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Word Snake</title>
   <meta name="theme-color" content="#111">
   <link rel="manifest" href="manifest.webmanifest">
@@ -34,7 +33,7 @@
           <div class="stat"><span>Crashes</span> <strong id="deaths">0</strong></div>
         </div>
 
-        <!-- Current guess (renamed from Pocket) -->
+        <!-- Current guess (was Pocket) -->
         <h2 class="panel-subtitle">Current</h2>
         <div id="pocket" class="tiles pocket"></div>
 
@@ -45,7 +44,7 @@
         <h2 class="panel-subtitle">Guesses</h2>
         <div id="guesses" class="tiles guesses" aria-live="polite" aria-atomic="true"></div>
 
-        <!-- On-screen controls -->
+        <!-- On-screen controls (hidden on phones via CSS; swipes enabled) -->
         <div id="controls" class="controls" aria-label="Directional controls">
           <button data-dir="up" aria-label="Up">▲</button>
           <div class="row">
@@ -65,27 +64,19 @@
   <!-- Load words BEFORE game -->
   <script src="words.js"></script>
   <script src="game.js"></script>
+
+  <!-- Dev-friendly SW auto-update (optional) -->
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloaded) return; reloaded = true; window.location.reload();
+      });
+      navigator.serviceWorker.addEventListener('message', (e) => {
+        if (e.data === 'sw:update' && !reloaded) { reloaded = true; window.location.reload(); }
+      });
     }
   </script>
 </body>
 </html>
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
-    let reloaded = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (reloaded) return;
-      reloaded = true;         // avoid reload loops
-      window.location.reload();
-    });
-    navigator.serviceWorker.addEventListener('message', (e) => {
-      if (e.data === 'sw:update' && !reloaded) {
-        reloaded = true;
-        window.location.reload();
-      }
-    });
-  }
-</script>
