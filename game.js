@@ -208,4 +208,97 @@
       ctx.beginPath(); ctx.moveTo(offsetX + x*cell, offsetY); ctx.lineTo(offsetX + x*cell, offsetY+ROWS*cell); ctx.stroke();
     }
     for (let y=0;y<=ROWS;y++) {
-      ctx.beginPath(); ctx.moveTo(offsetX, offsetY + y*cell); ctx.lineTo(off*
+      ctx.beginPath(); ctx.moveTo(offsetX, offsetY + y*cell); ctx.lineTo(offsetX+COLS*cell, offsetY + y*cell); ctx.stroke();
+    }
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = Math.floor(cell*0.6)+'px system-ui';
+    letters.forEach(l => {
+      ctx.fillStyle = '#355';
+      ctx.fillRect(offsetX + l.x*cell+2, offsetY + l.y*cell+2, cell-4, cell-4);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(l.ch, offsetX + l.x*cell + cell/2, offsetY + l.y*cell + cell/2 + 1);
+    });
+    ctx.fillStyle = '#3a6';
+    snake.forEach(s=>{
+      ctx.fillRect(offsetX + s.x*cell+2, offsetY + s.y*cell+2, cell-4, cell-4);
+    });
+  }
+
+  function loop(ts) {
+    const dt = ts - lastTime;
+    if (!paused && !awaitingContinue) tick(dt);
+    if (ts - lastTime >= speedMs) lastTime = ts;
+    requestAnimationFrame(loop);
+  }
+
+  controlButtons.forEach(b => b.addEventListener('click', () => setDir(b.dataset.dir)));
+
+  let touchStart = null;
+  canvas.addEventListener('touchstart', e => {
+    const t = e.changedTouches[0]; touchStart = {x:t.clientX, y:t.clientY};
+  }, {passive:true});
+  canvas.addEventListener('touchend', e => {
+    if(!touchStart) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y;
+    if (Math.abs(dx) > Math.abs(dy)) setDir(dx>0?'right':'left'); else setDir(dy>0?'down':'up');
+    touchStart = null;
+  }, {passive:true});
+
+  window.addEventListener('keydown', e => {
+    const k = e.key;
+    if (k==='ArrowUp'||k==='w') setDir('up');
+    if (k==='ArrowDown'||k==='s') setDir('down');
+    if (k==='ArrowLeft'||k==='a') setDir('left');
+    if (k==='ArrowRight'||k==='d') setDir('right');
+    if (k==='Enter' && awaitingContinue) doContinue();
+  });
+
+  function setDir(d) {
+    const nd = d==='up'?{x:0,y:-1}:d==='down'?{x:0,y:1}:d==='left'?{x:-1,y:0}:{x:1,y:0};
+    if (snake.length>1 && snake[0].x+nd.x===snake[1].x && snake[0].y+nd.y===snake[1].y) return;
+    queuedDir = nd;
+  }
+
+  function showContinue(){ btnContinue.hidden = false; }
+  function hideContinue(){ btnContinue.hidden = true; }
+  function doContinue() {
+    awaitingContinue = false;
+    statusEl.textContent = 'Continue… collect letters.';
+    hideContinue();
+  }
+  btnContinue.addEventListener('click', doContinue);
+
+  btnNew.addEventListener('click', () => reset());
+  btnPause.addEventListener('click', () => {
+    if (awaitingContinue) return;
+    paused = !paused; btnPause.textContent = paused ? '▶' : '⏸';
+  });
+
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const zoom = (window.visualViewport && typeof window.visualViewport.scale === 'number') ? window.visualViewport.scale : 1;
+    const dpr = (window.devicePixelRatio || 1) * zoom;
+    canvas.width  = Math.max(1, Math.round(rect.width  * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cell = Math.floor(Math.min(rect.width / COLS, rect.height / ROWS));
+    offsetX = Math.floor((rect.width  - cell * COLS) / 2);
+    offsetY = Math.floor((rect.height - cell * ROWS) / 2);
+    draw();
+  }
+
+  let _t; function scheduleFit(){ clearTimeout(_t); _t = setTimeout(fitCanvas, 50); }
+  const ro = new ResizeObserver(scheduleFit); ro.observe(canvas);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', scheduleFit, { passive: true });
+    window.visualViewport.addEventListener('scroll',  scheduleFit, { passive: true });
+  }
+
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+  fitCanvas();
+  reset();
+  requestAnimationFrame(loop);
+})();
