@@ -318,24 +318,45 @@ function startGame(){
   });
 
   // Controls: swipe (mobile)
-  let touchStartX=0, touchStartY=0;
-  const swipeThreshold = 30; // px
-  // Attach to canvas to avoid scrolling gesture conflicts
-  canvas.addEventListener('touchstart', (e)=>{
-    const t=e.changedTouches[0];
-    touchStartX=t.clientX; touchStartY=t.clientY;
-  }, {passive:true});
-  canvas.addEventListener('touchend', (e)=>{
-    if (gameOver || won || countdownActive) return;
-    const t=e.changedTouches[0];
-    const dx=t.clientX - touchStartX;
-    const dy=t.clientY - touchStartY;
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > swipeThreshold) {
-      setDir(dx>0?'right':'left');
-    } else if (Math.abs(dy) > swipeThreshold) {
-      setDir(dy>0?'down':'up');
-    }
-  }, {passive:true});
+// Controls: swipe (mobile) — prevent page scroll while swiping the canvas
+let touchStartX = 0, touchStartY = 0;
+const swipeThreshold = 30; // px
+
+function onTouchStart(e) {
+  // single touch only
+  if (e.changedTouches.length > 0) {
+    const t = e.changedTouches[0];
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+  }
+  e.preventDefault(); // <-- key: claim the gesture
+}
+
+function onTouchMove(e) {
+  // prevent Safari from scrolling while finger is on the canvas
+  e.preventDefault();
+}
+
+function onTouchEnd(e) {
+  if (gameOver || won || countdownActive) { e.preventDefault(); return; }
+
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStartX;
+  const dy = t.clientY - touchStartY;
+
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > swipeThreshold) {
+    setDir(dx > 0 ? 'right' : 'left');
+  } else if (Math.abs(dy) > swipeThreshold) {
+    setDir(dy > 0 ? 'down' : 'up');
+  }
+  e.preventDefault(); // stop click emulation / scrolling
+}
+
+// IMPORTANT: listeners must be non-passive so preventDefault works
+canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+canvas.addEventListener('touchmove',  onTouchMove,  { passive: false });
+canvas.addEventListener('touchend',   onTouchEnd,   { passive: false });
+
 
   function setDir(d){
     const nd = d==='up'?{x:0,y:-1}:d==='down'?{x:0,y:1}:d==='left'?{x:-1,y:0}:{x:1,y:0};
