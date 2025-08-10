@@ -1,4 +1,4 @@
-const CACHE = 'snakewordle-v2';  // ← bump this
+const CACHE = 'snakewordle-v3';  // bump this
 
 const ASSETS = [
   './',
@@ -13,7 +13,6 @@ self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
 });
 
-// Clean up old caches when a new SW takes control
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -24,20 +23,19 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Stale-while-revalidate for JS/HTML to pick up updates quickly
+  // Prefer network for HTML/JS so updates land quickly (fallback to cache)
   if (e.request.destination === 'document' || e.request.destination === 'script') {
     e.respondWith(
       caches.match(e.request).then(cached => {
-        const fetchPromise = fetch(e.request).then(resp => {
-          const copy = resp.clone();
-          caches.open(CACHE).then(c => c.put(e.request, copy));
+        const fetched = fetch(e.request).then(resp => {
+          caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
           return resp;
         }).catch(() => cached);
-        return cached || fetchPromise;
+        return cached || fetched;
       })
     );
     return;
   }
-  // Cache-first for everything else
+  // Cache-first for other assets
   e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });
