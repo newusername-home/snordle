@@ -1,4 +1,4 @@
-/* Word Snake — No Pause, Reset only; Max 10 crashes; Win stats; Extra pocket→scoreboard gap
+/* Word Snake — No Pause, Reset only; Max 10 crashes; Win stats; Current label; Extra gap
    - Unlimited lives with auto 3s countdown after start and each crash (until max crashes).
    - Cap crashes at 10; on reaching cap, stop and prompt to Reset.
    - On win, show stats: number of guesses, max snake length, crashes.
@@ -149,7 +149,7 @@ function startGame(){
     for(let i=0;i<MAX_GUESSES*5;i++){
       const d=document.createElement('div'); d.className='tile'; d.textContent=''; guessesEl.appendChild(d);
     }
-    // Pocket (5)
+    // Current (5)
     pocketEl.innerHTML='';
     for(let i=0;i<5;i++){
       const d=document.createElement('div'); d.className='tile'; d.textContent=''; pocketEl.appendChild(d);
@@ -212,7 +212,7 @@ function startGame(){
       return;
     }
     statusEl.textContent = `Crash (${deaths}/${MAX_CRASHES}).`;
-    // centre snake; keep letters/pocket/guesses
+    // centre snake; keep letters/current/guesses
     snake=[{x:Math.floor(COLS/2), y:Math.floor(ROWS/2)}];
     dir={x:1,y:0}; queuedDir=null;
     ensureNextCorrectLetterAvailable();
@@ -326,7 +326,7 @@ function startGame(){
   }
 
   // Reset button
-  btnNew.addEventListener('click', ()=> reset());
+  document.getElementById('btnNew').addEventListener('click', ()=> reset());
 
   // Canvas sizing
   function fitCanvas(){
