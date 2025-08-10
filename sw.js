@@ -1,4 +1,4 @@
-const CACHE = 'snakewordle-v8';  // bump this
+const CACHE = 'snakewordle-v9';  // bump this
 
 const ASSETS = [
   './',
