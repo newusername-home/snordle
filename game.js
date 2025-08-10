@@ -233,17 +233,25 @@
   btnPause.addEventListener('click', () => { paused = !paused; btnPause.textContent = paused?'▶':'⏸'; });
 
   // Resize handling: keep crisp on mobile
-  function fitCanvas() {
-    const rect = canvas.getBoundingClientRect();
-    const scale = window.devicePixelRatio || 1;
-    canvas.width = Math.floor(rect.width*scale);
-    canvas.height = Math.floor(rect.height*scale);
-    cell = Math.floor(Math.min(canvas.width / COLS, canvas.height / ROWS));
-    offsetX = Math.floor((canvas.width - cell*COLS)/2);
-    offsetY = Math.floor((canvas.height - cell*ROWS)/2);
-    ctx.setTransform(scale,0,0,scale,0,0);
-    draw();
-  }
+function fitCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+
+  // Backing store in device pixels
+  canvas.width  = Math.round(rect.width  * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+
+  // Draw in CSS pixels (so transform handles DPR)
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // IMPORTANT: compute layout in CSS pixels, not canvas.width/height
+  cell = Math.floor(Math.min(rect.width / COLS, rect.height / ROWS));
+  offsetX = Math.floor((rect.width  - cell * COLS) / 2);
+  offsetY = Math.floor((rect.height - cell * ROWS) / 2);
+
+  draw();
+}
+
   const ro = new ResizeObserver(fitCanvas); ro.observe(canvas);
 
   // Init
