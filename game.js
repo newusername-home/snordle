@@ -1,8 +1,9 @@
 /* Snake + Wordle hybrid (prototype)
    - Mobile-friendly touch controls (swipe or buttons)
    - 12x16 grid. Letters spawn as pellets. Collect 5 -> evaluate Wordle guess.
-   - Unlimited lives: crashes just reset the snake and increment a crash counter.
-   - 6 attempts for the word. PWA-ready (see manifest + sw.js).
+   - Unlimited lives: crashes pause the game; press "Continue" to resume on same word.
+   - Crash counter shown on panel.
+   - Uses visualViewport to stabilise canvas on mobile.
 */
 
 (() => {
@@ -14,6 +15,7 @@
   const deathsEl  = document.getElementById('deaths');
   const btnNew    = document.getElementById('btnNew');
   const btnPause  = document.getElementById('btnPause');
+  const btnContinue = document.getElementById('btnContinue');
   const controlButtons = document.querySelectorAll('#controls [data-dir]');
 
   // Grid
@@ -25,6 +27,7 @@
   let rng = (seed => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2**32)(Date.now() >>> 0);
   let target = pickTarget();
   let snake, dir, queuedDir, letters, guessLetters, guesses, paused, lastTime, speedMs, deaths;
+  let awaitingContinue = false; // blocks movement until user presses Continue after crash
 
   function reset() {
     target = pickTarget();
@@ -36,6 +39,7 @@
     guesses = [];
     deaths = 0;
     paused = false;
+    awaitingContinue = false;
     lastTime = performance.now();
     speedMs = 140;
 
@@ -58,6 +62,7 @@
     }
     updatePocket();
     updateStats();
+    hideContinue();
 
     spawnLetters(7);
     draw();
@@ -90,18 +95,18 @@
   }
 
   function tick(dt) {
-    if (paused) return;
+    if (paused || awaitingContinue) return;
     if (dt < speedMs) return;
 
     // apply direction
     if (queuedDir) { dir = queuedDir; queuedDir = null; }
     const nextHead = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
 
-    // collisions -> unlimited lives: register crash, reset snake only
+    // collisions -> unlimited lives: register crash, pause, require Continue
     const hitWall = nextHead.x<0 || nextHead.y<0 || nextHead.x>=COLS || nextHead.y>=ROWS;
     const hitSelf = snake.some(s=>coordsEqual(s,nextHead));
     if (hitWall || hitSelf) {
-      crashReset(hitWall ? 'Wall' : 'Self');
+      crashPause(hitWall ? 'Wall' : 'Self');
       draw();
       return;
     }
@@ -127,18 +132,19 @@
     draw();
   }
 
-  // Crash handling: increment counter, reset snake to centre; keep letters, guesses, and pocket as-is
-  function crashReset(reason) {
+  // Crash handling: increment counter; reset snake; pause and show Continue button
+  function crashPause(reason) {
     deaths++;
     updateStats();
-    statusEl.textContent = `Crash (${deaths}) — keep going.`;
-    // brief pause to avoid instant re-crash
-    paused = true;
-    // Reset snake back to centre, facing right
+    statusEl.textContent = `Crash (${deaths}). Press Continue to resume.`;
+    awaitingContinue = true;
+
+    // Reset snake back to centre, facing right; keep letters, guesses, and pocket
     snake = [{x: Math.floor(COLS/2), y: Math.floor(ROWS/2)}];
     dir = {x:1,y:0};
     queuedDir = null;
-    setTimeout(()=>{ paused = false; }, 250);
+
+    showContinue();
   }
 
   function commitGuess() {
@@ -163,10 +169,8 @@
 
     if (guess===target) {
       statusEl.textContent = `You solved it! Crashes: ${deaths}`;
-      // Game continues if you want to keep roaming; you can call reset() here if you prefer a new word automatically.
     } else if (guesses.length>=MAX_GUESSES) {
       statusEl.textContent = `Out of guesses. Word: ${target}. Crashes: ${deaths}`;
-      // You can optionally pause input here; leaving it playable.
     } else {
       statusEl.textContent = 'Keep going.';
     }
@@ -190,7 +194,6 @@
     for (let i=0;i<5;i++) {
       const tile = pocketEl.children[i];
       tile.textContent = guessLetters[i] || '';
-      // ensure no old scoring classes leak into pocket tiles
       tile.classList.remove('correct','present','absent');
     }
   }
@@ -232,7 +235,7 @@
   // Main loop
   function loop(ts) {
     const dt = ts - lastTime;
-    if (!paused) tick(dt);
+    if (!paused && !awaitingContinue) tick(dt);
     if (ts - lastTime >= speedMs) lastTime = ts;
     requestAnimationFrame(loop);
   }
@@ -263,6 +266,7 @@
     if (k==='ArrowDown'||k==='s') setDir('down');
     if (k==='ArrowLeft'||k==='a') setDir('left');
     if (k==='ArrowRight'||k==='d') setDir('right');
+    if (k==='Enter' && awaitingContinue) doContinue(); // keyboard continue
   });
 
   function setDir(d) {
@@ -271,6 +275,23 @@
     if (snake.length>1 && snake[0].x+nd.x===snake[1].x && snake[0].y+nd.y===snake[1].y) return;
     queuedDir = nd;
   }
+
+  // Continue button handlers
+  function showContinue(){ if (btnContinue) btnContinue.hidden = false; }
+  function hideContinue(){ if (btnContinue) btnContinue.hidden = true; }
+  function doContinue() {
+    awaitingContinue = false;
+    statusEl.textContent = 'Continue… collect letters.';
+    hideContinue();
+  }
+  if (btnContinue) btnContinue.addEventListener('click', doContinue);
+
+  // Pause / New buttons
+  if (btnNew) btnNew.addEventListener('click', () => { reset(); });
+  if (btnPause) btnPause.addEventListener('click', () => {
+    if (awaitingContinue) return; // cannot unpause while waiting for Continue
+    paused = !paused; btnPause.textContent = paused ? '▶' : '⏸';
+  });
 
   // Canvas sizing with visual viewport & page zoom
   function fitCanvas() {
