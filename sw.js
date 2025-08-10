@@ -1,5 +1,5 @@
 // sw.js — robust cache + update, avoids "Response body is already used"
-const CACHE = 'snakewordle-v21'; // bump on each deploy
+const CACHE = 'snakewordle-v22'; // bump on each deploy
 
 const ASSETS = [
   './',
