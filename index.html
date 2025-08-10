@@ -2,48 +2,40 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <!-- Prevent pinch/zoom to keep canvas stable on mobile -->
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Word Snake</title>
   <meta name="theme-color" content="#111">
-
-  <!-- Optional PWA bits (fine to keep even if you don't use them yet) -->
   <link rel="manifest" href="manifest.webmanifest">
-
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="app">
     <header>
       <h1>Word Snake</h1>
-      <div class="buttons">
-        <button id="btnPause" aria-label="Pause">Pause</button>
+      <div class="buttons" style="margin-left:auto;">
         <button id="btnNew" aria-label="Reset game">Reset</button>
       </div>
     </header>
 
     <main>
-      <!-- Game board -->
       <canvas id="board" aria-label="Game board" role="img"></canvas>
 
-      <!-- Right panel -->
       <section id="panel" aria-label="Game panel">
         <div id="status" aria-live="polite" aria-atomic="true">Loading…</div>
 
-        <!-- Stats -->
         <div id="stats">
           <div class="stat"><span>Crashes</span> <strong id="deaths">0</strong></div>
         </div>
 
-        <!-- Live pocket preview (current letters before committing a guess) -->
-        <h2 class="panel-subtitle">Pocket</h2>
-        <div id="pocket" class="tiles"></div>
+        <!-- Changed Pocket → Current -->
+        <h2 class="panel-subtitle">Current</h2>
+        <div id="pocket" class="tiles pocket"></div>
 
-        <!-- Guess grid (scored like Wordle) -->
+        <div class="gap"></div>
+
         <h2 class="panel-subtitle">Guesses</h2>
         <div id="guesses" class="tiles guesses" aria-live="polite" aria-atomic="true"></div>
 
-        <!-- On-screen controls -->
         <div id="controls" class="controls" aria-label="Directional controls">
           <button data-dir="up" aria-label="Up">▲</button>
           <div class="row">
@@ -60,10 +52,8 @@
     </footer>
   </div>
 
-  <!-- Load words BEFORE game -->
   <script src="words.js"></script>
   <script src="game.js"></script>
-  <!-- Service worker (optional): make sure sw.js exists if you keep this -->
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(()=>{});
