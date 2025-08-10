@@ -115,3 +115,14 @@ main{display:grid; grid-template-columns:1fr min(360px,38%); gap:10px;}
   .tiles .tile{height:28px; font-size:14px;}
   .tiles.guesses{grid-auto-rows:28px;}
 }
+
+/* Stop page from scrolling when swiping on the canvas */
+#board {
+  touch-action: none;              /* modern iOS Safari respects this */
+}
+
+/* Reduce pull-to-refresh/overscroll side effects */
+html, body {
+  overscroll-behavior: none;
+}
+
