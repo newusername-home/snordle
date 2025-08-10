@@ -31,3 +31,4 @@ const WORD_LIST = [
   "WIDER","WORLD","WORTH","YACHT","YEAST",
   "YIELD","ZEBRA"
 ];
+window.WORD_LIST = WORD_LIST;   // ← expose for non-module scripts
