@@ -241,16 +241,17 @@ function fitCanvas() {
   canvas.width  = Math.round(rect.width  * dpr);
   canvas.height = Math.round(rect.height * dpr);
 
-  // Draw in CSS pixels (so transform handles DPR)
+  // Draw in CSS pixels
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  // IMPORTANT: compute layout in CSS pixels, not canvas.width/height
+  // Compute layout in CSS pixels
   cell = Math.floor(Math.min(rect.width / COLS, rect.height / ROWS));
   offsetX = Math.floor((rect.width  - cell * COLS) / 2);
   offsetY = Math.floor((rect.height - cell * ROWS) / 2);
 
   draw();
 }
+
 
   const ro = new ResizeObserver(fitCanvas); ro.observe(canvas);
 
