@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <!-- Keep canvas stable on mobile -->
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Word Snake</title>
   <meta name="theme-color" content="#111">
@@ -12,30 +13,37 @@
   <div id="app">
     <header>
       <h1>Word Snake</h1>
-      <div class="buttons" style="margin-left:auto;">
+      <!-- Right-aligned Reset -->
+      <div class="buttons">
         <button id="btnNew" aria-label="Reset game">Reset</button>
       </div>
     </header>
 
     <main>
+      <!-- Game board -->
       <canvas id="board" aria-label="Game board" role="img"></canvas>
 
+      <!-- Right panel -->
       <section id="panel" aria-label="Game panel">
         <div id="status" aria-live="polite" aria-atomic="true">Loading…</div>
 
+        <!-- Stats -->
         <div id="stats">
           <div class="stat"><span>Crashes</span> <strong id="deaths">0</strong></div>
         </div>
 
-        <!-- Changed Pocket → Current -->
+        <!-- Current guess (renamed from Pocket) -->
         <h2 class="panel-subtitle">Current</h2>
         <div id="pocket" class="tiles pocket"></div>
 
+        <!-- Extra visual gap between current guess and scoreboard -->
         <div class="gap"></div>
 
+        <!-- Guess grid (Wordle-like scoreboard) -->
         <h2 class="panel-subtitle">Guesses</h2>
         <div id="guesses" class="tiles guesses" aria-live="polite" aria-atomic="true"></div>
 
+        <!-- On-screen controls -->
         <div id="controls" class="controls" aria-label="Directional controls">
           <button data-dir="up" aria-label="Up">▲</button>
           <div class="row">
@@ -52,6 +60,7 @@
     </footer>
   </div>
 
+  <!-- Load words BEFORE game -->
   <script src="words.js"></script>
   <script src="game.js"></script>
   <script>
