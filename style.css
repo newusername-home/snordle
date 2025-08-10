@@ -1,170 +1,71 @@
-:root{
-  --bg: #0f0f10;
-  --panel: #151517;
-  --grid: #2a2a2a;
-  --snake: #3a6;
-  --tile-bg: #223;
-  --text: #e6e6e6;
-  --muted: #9aa0a6;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- Keep canvas stable on mobile -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Word Snake</title>
+  <meta name="theme-color" content="#111">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Word Snake</h1>
+      <div class="buttons">
+        <button id="btnNew" aria-label="Reset game">Reset</button>
+      </div>
+    </header>
 
-  --correct: #538d4e; /* green */
-  --present: #b59f3b; /* yellow */
-  --absent:  #3a3a3c; /* grey */
-}
+    <main>
+      <!-- Game board -->
+      <canvas id="board" aria-label="Game board" role="img"></canvas>
 
-*{box-sizing:border-box}
-html,body{height:100%}
-body{
-  margin:0;
-  font:16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color:var(--text);
-  background:var(--bg);
-  -webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;
-  touch-action:manipulation; /* reduces accidental zoom on tap */
-}
+      <!-- Right panel -->
+      <section id="panel" aria-label="Game panel">
+        <div id="status" aria-live="polite" aria-atomic="true">Loading…</div>
 
-#app{
-  max-width:1100px;
-  margin:0 auto;
-  display:flex;
-  flex-direction:column;
-  min-height:100dvh;
-  padding:10px;
-  gap:10px;
-}
+        <!-- Stats -->
+        <div id="stats">
+          <div class="stat"><span>Crashes</span> <strong id="deaths">0</strong></div>
+        </div>
 
-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-}
-h1{
-  margin:0;
-  font-size:20px;
-  font-weight:700;
-  letter-spacing:0.3px;
-}
-.buttons{display:flex; gap:8px}
-button{
-  appearance:none;
-  border:1px solid #333;
-  background:#1f1f22;
-  color:var(--text);
-  padding:8px 12px;
-  border-radius:10px;
-  cursor:pointer;
-  font-weight:600;
-}
-button:hover{background:#242428}
-button:active{transform:translateY(1px)}
+        <!-- Live pocket preview -->
+        <h2 class="panel-subtitle">Pocket</h2>
+        <div id="pocket" class="tiles pocket"></div>
 
-main{
-  display:grid;
-  grid-template-columns: 1fr min(360px, 38%);
-  gap:10px;
-}
+        <!-- Extra visual gap between pocket and scoreboard -->
+        <div class="gap"></div>
 
-/* Canvas container sizing:
-   We let JS size the backing store; here we just give it space. */
-#board{
-  width:100%;
-  height: min(75vh, 78dvh);
-  display:block;
-  border:1px solid #222;
-  border-radius:12px;
-  background:#111;
-}
+        <!-- Guess grid (Wordle-like scoreboard) -->
+        <h2 class="panel-subtitle">Guesses</h2>
+        <div id="guesses" class="tiles guesses" aria-live="polite" aria-atomic="true"></div>
 
-/* Right panel */
-#panel{
-  background:var(--panel);
-  border:1px solid #222;
-  border-radius:12px;
-  padding:12px;
-  display:flex;
-  flex-direction:column;
-  gap:12px;
-  min-height: min(75vh, 78dvh);
-}
+        <!-- On-screen controls -->
+        <div id="controls" class="controls" aria-label="Directional controls">
+          <button data-dir="up" aria-label="Up">▲</button>
+          <div class="row">
+            <button data-dir="left" aria-label="Left">◀</button>
+            <button data-dir="down" aria-label="Down">▼</button>
+            <button data-dir="right" aria-label="Right">▶</button>
+          </div>
+        </div>
+      </section>
+    </main>
 
-#status{
-  min-height:24px;
-  padding:6px 8px;
-  border-radius:8px;
-  background:#111;
-  border:1px solid #222;
-}
+    <footer>
+      <small>Prototype. Add to Home Screen to play full-screen offline.</small>
+    </footer>
+  </div>
 
-#stats{
-  display:flex; gap:10px; flex-wrap:wrap;
-}
-.stat{
-  background:#111;
-  border:1px solid #222;
-  border-radius:8px;
-  padding:8px 10px;
-  color:var(--muted);
-}
-.stat strong{color:var(--text)}
-
-/* Tiles (pocket & guesses) */
-.panel-subtitle{
-  margin:0;
-  font-size:13px;
-  color:var(--muted);
-  font-weight:600;
-  text-transform:uppercase;
-  letter-spacing:0.08em;
-}
-
-.tiles{
-  display:grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap:6px;
-}
-.tiles .tile{
-  height:42px;
-  border-radius:8px;
-  background:var(--tile-bg);
-  display:flex; align-items:center; justify-content:center;
-  font-weight:700;
-  border:1px solid #2b2f3a;
-  user-select:none;
-}
-
-/* Guess grid has 6 rows of 5 */
-.tiles.guesses{
-  grid-template-columns: repeat(5, 1fr);
-  grid-auto-rows:42px;
-}
-
-/* Wordle-style colouring */
-.tile.correct { background: var(--correct); border-color: var(--correct); color:#fff; }
-.tile.present { background: var(--present); border-color: var(--present); color:#fff; }
-.tile.absent  { background: var(--absent);  border-color: var(--absent);  color:#fff; }
-
-/* On-screen d-pad controls */
-.controls{
-  margin-top:auto;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:8px;
-}
-.controls > button{
-  width:64px; height:44px; border-radius:10px;
-}
-.controls .row{
-  display:flex; gap:8px;
-}
-.controls .row button{
-  width:64px; height:44px; border-radius:10px;
-}
-
-/* Responsive: stack panel below canvas on small screens */
-@media (max-width: 860px){
-  main{ grid-template-columns: 1fr; }
-  #panel{ min-height: auto; }
-}
+  <!-- Load words BEFORE game -->
+  <script src="words.js"></script>
+  <script src="game.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    }
+  </script>
+</body>
+</html>
