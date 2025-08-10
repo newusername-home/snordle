@@ -1,15 +1,17 @@
 /* Snake + Wordle (robust boot + unlimited lives + Continue + pocket + mobile fix)
-   - Auto-loads words.js if WORD_LIST is missing.
-   - Unlimited lives: crash pauses; press "Continue" to resume on same word.
+   - Detects/loads words.js if WORD_LIST isn't present (no module/exports needed).
+   - Unlimited lives: crash pauses; press "Continue" to resume same word.
    - Crash counter on panel; live pocket preview.
-   - Uses visualViewport to stabilise canvas size on mobile browsers.
+   - Uses visualViewport to stabilise canvas size on mobile.
 */
 
 console.log("[Game] Starting game.js…");
 
 (function boot() {
-  // If WORD_LIST is already present, start immediately
-  if (Array.isArray(window.WORD_LIST)) {
+  const hasWordList = () =>
+    (typeof WORD_LIST !== 'undefined') && Array.isArray(WORD_LIST);
+
+  if (hasWordList()) {
     console.log(`[Game] WORD_LIST present (${WORD_LIST.length} words). Booting…`);
     startGame();
     return;
@@ -17,42 +19,37 @@ console.log("[Game] Starting game.js…");
 
   console.warn("[Game] WORD_LIST not found, injecting words.js dynamically…");
 
-  // Avoid double-injection
   if (!document.getElementById('words-loader')) {
     const s = document.createElement('script');
     s.id = 'words-loader';
-    s.src = 'words.js?v=10';      // cache-bust to avoid stale SW/HTTP cache
-    s.async = false;              // keep execution ordering consistent
+    s.src = 'words.js?v=11';   // cache-bust
+    s.async = false;           // keep order
     s.onload = () => {
-      if (Array.isArray(window.WORD_LIST)) {
+      if (hasWordList()) {
         console.log(`[Game] words.js loaded (${WORD_LIST.length} words). Booting…`);
         startGame();
       } else {
-        fail("words.js loaded but WORD_LIST still missing. Ensure it defines `const WORD_LIST = [...]`.");
+        fail("words.js loaded but WORD_LIST still missing. Ensure it has `const WORD_LIST = [...]` (no export/module).");
       }
     };
-    s.onerror = () => fail("Failed to load words.js (404 or blocked). Ensure words.js exists in the repo root.");
+    s.onerror = () => fail("Failed to load words.js (404 or blocked). Ensure words.js exists in repo root.");
     document.head.appendChild(s);
   } else {
-    // Someone else is loading it; poll briefly
     const t0 = Date.now();
     (function poll() {
-      if (Array.isArray(window.WORD_LIST)) { startGame(); return; }
-      if (Date.now() - t0 > 3000) { fail("Timeout waiting for WORD_LIST after script injection."); return; }
+      if (hasWordList()) { startGame(); return; }
+      if (Date.now() - t0 > 3000) { fail("Timeout waiting for WORD_LIST after injection."); return; }
       setTimeout(poll, 100);
     })();
   }
 
-  function fail(msg) {
-    console.error("[Game] " + msg);
-    alert("Startup error: " + msg);
-  }
+  function fail(msg) { console.error("[Game] " + msg); alert("Startup error: " + msg); }
 })();
 
 function startGame() {
   console.log("[Game] Booting main…");
 
-  // Verify required DOM elements exist
+  // Verify required DOM elements
   const requiredIds = ['board','status','guesses','pocket','deaths','btnNew','btnPause','btnContinue'];
   const missing = requiredIds.filter(id => !document.getElementById(id));
   if (missing.length) {
@@ -85,9 +82,21 @@ function startGame() {
   let target, snake, dir, queuedDir, letters, guessLetters, guesses, paused, lastTime, speedMs, deaths;
   let awaitingContinue = false; // After crash, require Continue
 
+  // ---- SAFE INITIALISATION BEFORE FIRST fitCanvas() ----
+  letters = [];
+  snake   = [{ x: Math.floor(COLS/2), y: Math.floor(ROWS/2) }];
+  guessLetters = [];
+  guesses = [];
+  paused = false;
+  awaitingContinue = false;
+  lastTime = performance.now();
+  speedMs = 140;
+  deaths = 0;
+  // ------------------------------------------------------
+
   function pickTarget() {
-    if (!Array.isArray(window.WORD_LIST) || WORD_LIST.length < 10) {
-      console.warn("[Game] WORD_LIST is small/missing; using fallback word.");
+    if (typeof WORD_LIST === 'undefined' || !Array.isArray(WORD_LIST) || WORD_LIST.length < 10) {
+      console.warn("[Game] WORD_LIST missing/small; using fallback word.");
       return 'APPLE';
     }
     const idx = Math.floor(rng() * (WORD_LIST.length/2)); // mild bias to first half
@@ -98,6 +107,8 @@ function startGame() {
     console.log("[Game] Resetting state…");
     target = pickTarget();
     console.log(`[Game] Target word: ${target}`);
+
+    // reset runtime state
     snake = [{x: Math.floor(COLS/2), y: Math.floor(ROWS/2)}];
     dir = {x:1,y:0};
     queuedDir = null;
@@ -111,7 +122,8 @@ function startGame() {
     speedMs = 140;
 
     statusEl.textContent = 'Collect letters to form a guess.';
-    // Build guesses grid (6 rows × 5)
+
+    // Build guesses grid (6×5)
     guessesEl.innerHTML = '';
     for (let i=0;i<MAX_GUESSES*5;i++) {
       const d = document.createElement('div');
@@ -119,7 +131,8 @@ function startGame() {
       d.textContent = '';
       guessesEl.appendChild(d);
     }
-    // Pocket (always 5 slots)
+
+    // Pocket (5 slots)
     pocketEl.innerHTML = '';
     for (let i=0;i<5;i++) {
       const d = document.createElement('div');
@@ -143,7 +156,7 @@ function startGame() {
       const p = {x:Math.floor(rng()*COLS), y:Math.floor(rng()*ROWS)};
       if (!snake.some(s => coordsEqual(s,p)) && !letters.some(l => l.x===p.x && l.y===p.y)) return p;
     }
-    return {x:0,y:0}; // extremely unlikely fallback
+    return {x:0,y:0}; // extreme fallback
   }
 
   function spawnLetters(n=1) {
@@ -163,7 +176,6 @@ function startGame() {
     if (paused || awaitingContinue) return;
     if (dt < speedMs) return;
 
-    // Direction update
     if (queuedDir) { dir = queuedDir; queuedDir = null; }
     const nextHead = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
 
@@ -265,7 +277,7 @@ function startGame() {
 
   function updateStats() { if (deathsEl) deathsEl.textContent = String(deaths); }
 
-  // Rendering
+  // Rendering (guards against uninitialised arrays)
   function draw() {
     ctx.clearRect(0,0,canvas.width, canvas.height);
     // background
@@ -280,18 +292,20 @@ function startGame() {
       ctx.beginPath(); ctx.moveTo(offsetX, offsetY + y*cell); ctx.lineTo(offsetX+COLS*cell, offsetY + y*cell); ctx.stroke();
     }
     // letters
+    const _letters = Array.isArray(letters) ? letters : [];
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = Math.floor(cell*0.6)+'px system-ui';
-    letters.forEach(l => {
+    _letters.forEach(l => {
       ctx.fillStyle = '#355';
       ctx.fillRect(offsetX + l.x*cell+2, offsetY + l.y*cell+2, cell-4, cell-4);
       ctx.fillStyle = '#fff';
       ctx.fillText(l.ch, offsetX + l.x*cell + cell/2, offsetY + l.y*cell + cell/2 + 1);
     });
     // snake
+    const _snake = Array.isArray(snake) ? snake : [];
     ctx.fillStyle = '#3a6';
-    snake.forEach(s=>{
+    _snake.forEach(s=>{
       ctx.fillRect(offsetX + s.x*cell+2, offsetY + s.y*cell+2, cell-4, cell-4);
     });
   }
@@ -376,6 +390,7 @@ function startGame() {
     draw();
   }
 
+  // Resize hooks
   let _t; function scheduleFit(){ clearTimeout(_t); _t = setTimeout(fitCanvas, 50); }
   const ro = new ResizeObserver(scheduleFit); ro.observe(canvas);
   if (window.visualViewport) {
@@ -383,9 +398,9 @@ function startGame() {
     window.visualViewport.addEventListener('scroll',  scheduleFit, { passive: true });
   }
 
-  // Init
+  // Init sequence
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
-  fitCanvas();
+  fitCanvas();          // safe now (arrays initialised)
   reset();
   requestAnimationFrame(loop);
 
