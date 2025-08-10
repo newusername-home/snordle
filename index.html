@@ -32,10 +32,10 @@
           <div class="stat"><span>Crashes</span> <strong id="deaths">0</strong></div>
         </div>
 
-        <!-- Live pocket preview (current letters before submitting a guess) -->
+        <!-- Live pocket preview -->
         <div id="pocket" aria-label="Current Letters"></div>
 
-        <!-- Guess grid (scored like Wordle) -->
+        <!-- Guess grid -->
         <div id="guesses" aria-live="polite" aria-atomic="true"></div>
 
         <!-- On-screen controls -->
@@ -48,3 +48,17 @@
           </div>
         </div>
       </section>
+    </main>
+
+    <footer>
+      <small>Prototype. Add to Home Screen to play full-screen offline.</small>
+    </footer>
+  </div>
+
+  <!-- ✅ Load words.js FIRST so WORD_LIST is available -->
+  <script src="words.js"></script>
+
+  <!-- ✅ Load the game AFTER words.js -->
+  <script src="game.js"></script>
+</body>
+</html>
