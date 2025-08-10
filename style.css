@@ -1,20 +1,98 @@
-*{box-sizing:border-box}
-html,body{margin:0;height:100%;background:#111;color:#eee;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
-#app{max-width:520px;margin:0 auto;padding:8px}
-header{display:flex;align-items:center;justify-content:space-between;padding:4px 0}
-h1{font-size:20px;margin:0}
-.buttons button{background:#222;color:#fff;border:1px solid #444;border-radius:8px;padding:6px 10px;margin-left:6px}
-main{display:flex;gap:8px}
-canvas{background:#1a1a1a;border:1px solid #333;border-radius:12px;touch-action:none}
-#panel{flex:1;display:flex;flex-direction:column;gap:8px}
-#status{min-height:24px}
-#guesses{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;min-height:160px}
-.tile{display:flex;align-items:center;justify-content:center;height:36px;border-radius:6px;border:1px solid #333;background:#2a2a2a;color:#fff;font-weight:700}
-.tile.correct{background:#3a6}
-.tile.present{background:#caa92b}
-.tile.absent{background:#555}
-.controls{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:4px}
-.controls button{font-size:20px;background:#222;color:#fff;border:1px solid #444;border-radius:10px;padding:10px 14px}
-.controls .row{display:flex;gap:6px}
-footer{margin-top:8px;color:#aaa}
-@media (max-width:480px){ main{flex-direction:column} #guesses{min-height:120px} }
+/* Global reset & typography */
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #111;
+  color: #eee;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation; /* reduce accidental gesture zooms */
+}
+
+#app { max-width: 520px; margin: 0 auto; padding: 8px; }
+
+/* Header */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+h1 { font-size: 20px; margin: 0; }
+.buttons button {
+  background: #222;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-left: 6px;
+}
+
+/* Layout */
+main { display: flex; gap: 8px; }
+#panel { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+#status { min-height: 24px; }
+
+/* Canvas – stable mobile sizing */
+canvas {
+  width: 100%;
+  /* Dynamic viewport height reduces jumps when URL bar shows/hides */
+  height: 60dvh;
+  max-height: 75dvh;
+  /* Optional: keep consistent shape, letterbox if needed */
+  aspect-ratio: 3 / 4;
+
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+
+  /* Prevent browser gestures from interfering with swipes */
+  touch-action: none;
+}
+
+/* Guess grid */
+#guesses {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  min-height: 160px;
+}
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #2a2a2a;
+  color: #fff;
+  font-weight: 700;
+}
+.tile.correct { background: #3a6; }     /* green */
+.tile.present { background: #caa92b; }  /* yellow */
+.tile.absent  { background: #555; }
+
+/* On-screen controls */
+.controls { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 4px; }
+.controls .row { display: flex; gap: 6px; }
+.controls button,
+button {
+  font-size: 20px;
+  background: #222;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 10px;
+  padding: 10px 14px;
+
+  /* Reduce double-tap zoom triggers on iOS */
+  touch-action: manipulation;
+}
+
+footer { margin-top: 8px; color: #aaa; }
+
+/* Narrow screens */
+@media (max-width: 480px) {
+  main { flex-direction: column; }
+  #guesses { min-height: 120px; }
+}
