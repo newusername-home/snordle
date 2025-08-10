@@ -70,3 +70,20 @@
   </script>
 </body>
 </html>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloaded) return;
+      reloaded = true;         // avoid reload loops
+      window.location.reload();
+    });
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      if (e.data === 'sw:update' && !reloaded) {
+        reloaded = true;
+        window.location.reload();
+      }
+    });
+  }
+</script>
