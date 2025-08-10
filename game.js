@@ -9,6 +9,8 @@
   const ctx = canvas.getContext('2d');
   const statusEl = document.getElementById('status');
   const guessesEl = document.getElementById('guesses');
+  const pocketEl = document.getElementById('pocket');
+
   const btnNew = document.getElementById('btnNew');
   const btnPause = document.getElementById('btnPause');
   const controlButtons = document.querySelectorAll('#controls [data-dir]');
@@ -37,6 +39,15 @@
     lastTime = performance.now();
     speedMs = 140;
     statusEl.textContent = 'Collect letters to form a guess.';
+     // Create empty pocket display
+pocketEl.innerHTML = '';
+for (let i = 0; i < 5; i++) {
+  const d = document.createElement('div');
+  d.className = 'tile';
+  d.textContent = '';
+  pocketEl.appendChild(d);
+}
+
     guessesEl.innerHTML = '';
     for (let i=0;i<MAX_GUESSES*5;i++) {
       const d = document.createElement('div');
@@ -102,7 +113,15 @@
       snake.pop(); // no growth
     }
     draw();
+     updatePocket();
+
   }
+function updatePocket() {
+  for (let i = 0; i < 5; i++) {
+    const tile = pocketEl.children[i];
+    tile.textContent = guessLetters[i] || '';
+  }
+}
 
   function commitGuess() {
     const guess = guessLetters.join('');
@@ -121,6 +140,8 @@
     }
     guesses.push({word:guess, res});
     guessLetters = [];
+     updatePocket();
+
     if (guess===target) {
       gameOver(true, 'You solved it!');
     } else if (guesses.length>=MAX_GUESSES) {
