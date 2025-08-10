@@ -37,7 +37,6 @@ body{
 header{
   display:flex;
   align-items:center;
-  justify-content:space-between;
   gap:12px;
 }
 h1{
@@ -46,7 +45,13 @@ h1{
   font-weight:700;
   letter-spacing:0.3px;
 }
-.buttons{display:flex; gap:8px}
+/* Right-align the Reset button group */
+header .buttons{
+  margin-left:auto;
+  display:flex;
+  gap:8px;
+}
+
 button{
   appearance:none;
   border:1px solid #333;
@@ -132,7 +137,7 @@ main{
   user-select:none;
 }
 
-/* Bigger visual separation between pocket and scoreboard */
+/* Bigger visual separation between current and scoreboard */
 .gap{ height:16px; }
 
 /* Guess grid has 6 rows of 5 */
