@@ -1,4 +1,5 @@
-const CACHE = 'snakewordle-v10';  // bump this
+// sw.js — robust cache + update, avoids "Response body is already used"
+const CACHE = 'snakewordle-v14'; // bump on each deploy
 
 const ASSETS = [
   './',
@@ -9,33 +10,44 @@ const ASSETS = [
   './manifest.webmanifest'
 ];
 
-self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+// Precache
+self.addEventListener('install', (event) => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    await cache.addAll(ASSETS);
+    // Activate immediately on first load
+    self.skipWaiting();
+  })());
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
+// Clean old caches
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    // Control all clients right away
+    await self.clients.claim();
+  })());
 });
 
-self.addEventListener('fetch', (e) => {
-  // Prefer network for HTML/JS so updates land quickly (fallback to cache)
-  if (e.request.destination === 'document' || e.request.destination === 'script') {
-    e.respondWith(
-      caches.match(e.request).then(cached => {
-        const fetched = fetch(e.request).then(resp => {
-          caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
-          return resp;
-        }).catch(() => cached);
-        return cached || fetched;
-      })
-    );
-    return;
-  }
-  // Cache-first for other assets
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
-});
+// Strategy:
+// - HTML & JS: network-first (fallback to cache). Clone BEFORE using.
+// - Other assets: cache-first (fallback to network).
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+
+  // Only cache GET
+  if (req.method !== 'GET') return;
+
+  const dest = req.destination; // 'document' | 'script' | 'style' | 'image' | ''
+
+  // Network-first for HTML/JS so updates land quickly
+  if (dest === 'document' || dest === 'script') {
+    event.respondWith((async () => {
+      try {
+        const networkResp = await fetch(req, { cache: 'no-store' });
+        // Clone BEFORE returning/use
+        const toCache = networkResp.clone();
+        // Cache only OK or opaque (some CDNs/scripts can be opaque)
+        if (networkResp.ok || networkResp.type === 'opaque') {
+          const cache = await caches.open(CACHE);
