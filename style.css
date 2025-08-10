@@ -1,108 +1,170 @@
-/* Global reset & typography */
-* { box-sizing: border-box; }
-html, body {
-  margin: 0;
-  height: 100%;
-  background: #111;
-  color: #eee;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-  -webkit-text-size-adjust: 100%;
-  touch-action: manipulation; /* reduce accidental gesture zooms */
+:root{
+  --bg: #0f0f10;
+  --panel: #151517;
+  --grid: #2a2a2a;
+  --snake: #3a6;
+  --tile-bg: #223;
+  --text: #e6e6e6;
+  --muted: #9aa0a6;
+
+  --correct: #538d4e; /* green */
+  --present: #b59f3b; /* yellow */
+  --absent:  #3a3a3c; /* grey */
 }
 
-#app { max-width: 520px; margin: 0 auto; padding: 8px; }
-
-/* Header */
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 0;
-}
-h1 { font-size: 20px; margin: 0; }
-.buttons button {
-  background: #222;
-  color: #fff;
-  border: 1px solid #444;
-  border-radius: 8px;
-  padding: 6px 10px;
-  margin-left: 6px;
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font:16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color:var(--text);
+  background:var(--bg);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  touch-action:manipulation; /* reduces accidental zoom on tap */
 }
 
-/* Layout */
-main { display: flex; gap: 8px; }
-#panel { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-#status { min-height: 24px; }
-#pocket {
-  display: grid;
+#app{
+  max-width:1100px;
+  margin:0 auto;
+  display:flex;
+  flex-direction:column;
+  min-height:100dvh;
+  padding:10px;
+  gap:10px;
+}
+
+header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+h1{
+  margin:0;
+  font-size:20px;
+  font-weight:700;
+  letter-spacing:0.3px;
+}
+.buttons{display:flex; gap:8px}
+button{
+  appearance:none;
+  border:1px solid #333;
+  background:#1f1f22;
+  color:var(--text);
+  padding:8px 12px;
+  border-radius:10px;
+  cursor:pointer;
+  font-weight:600;
+}
+button:hover{background:#242428}
+button:active{transform:translateY(1px)}
+
+main{
+  display:grid;
+  grid-template-columns: 1fr min(360px, 38%);
+  gap:10px;
+}
+
+/* Canvas container sizing:
+   We let JS size the backing store; here we just give it space. */
+#board{
+  width:100%;
+  height: min(75vh, 78dvh);
+  display:block;
+  border:1px solid #222;
+  border-radius:12px;
+  background:#111;
+}
+
+/* Right panel */
+#panel{
+  background:var(--panel);
+  border:1px solid #222;
+  border-radius:12px;
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  min-height: min(75vh, 78dvh);
+}
+
+#status{
+  min-height:24px;
+  padding:6px 8px;
+  border-radius:8px;
+  background:#111;
+  border:1px solid #222;
+}
+
+#stats{
+  display:flex; gap:10px; flex-wrap:wrap;
+}
+.stat{
+  background:#111;
+  border:1px solid #222;
+  border-radius:8px;
+  padding:8px 10px;
+  color:var(--muted);
+}
+.stat strong{color:var(--text)}
+
+/* Tiles (pocket & guesses) */
+.panel-subtitle{
+  margin:0;
+  font-size:13px;
+  color:var(--muted);
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+}
+
+.tiles{
+  display:grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-  min-height: 44px;
+  gap:6px;
 }
-#pocket .tile {
-  height: 44px;
-  font-size: 20px;
-}
-
-/* Canvas – stable mobile sizing */
-canvas {
-  width: 100%;
-  /* Dynamic viewport height reduces jumps when URL bar shows/hides */
-  height: 60dvh;
-  max-height: 75dvh;
-  /* Optional: keep consistent shape, letterbox if needed */
-  aspect-ratio: 3 / 4;
-
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 12px;
-
-  /* Prevent browser gestures from interfering with swipes */
-  touch-action: none;
+.tiles .tile{
+  height:42px;
+  border-radius:8px;
+  background:var(--tile-bg);
+  display:flex; align-items:center; justify-content:center;
+  font-weight:700;
+  border:1px solid #2b2f3a;
+  user-select:none;
 }
 
-/* Guess grid */
-#guesses {
-  display: grid;
+/* Guess grid has 6 rows of 5 */
+.tiles.guesses{
   grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-  min-height: 160px;
-}
-.tile {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 36px;
-  border-radius: 6px;
-  border: 1px solid #333;
-  background: #2a2a2a;
-  color: #fff;
-  font-weight: 700;
-}
-.tile.correct { background: #3a6; }     /* green */
-.tile.present { background: #caa92b; }  /* yellow */
-.tile.absent  { background: #555; }
-
-/* On-screen controls */
-.controls { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 4px; }
-.controls .row { display: flex; gap: 6px; }
-.controls button,
-button {
-  font-size: 20px;
-  background: #222;
-  color: #fff;
-  border: 1px solid #444;
-  border-radius: 10px;
-  padding: 10px 14px;
-
-  /* Reduce double-tap zoom triggers on iOS */
-  touch-action: manipulation;
+  grid-auto-rows:42px;
 }
 
-footer { margin-top: 8px; color: #aaa; }
+/* Wordle-style colouring */
+.tile.correct { background: var(--correct); border-color: var(--correct); color:#fff; }
+.tile.present { background: var(--present); border-color: var(--present); color:#fff; }
+.tile.absent  { background: var(--absent);  border-color: var(--absent);  color:#fff; }
 
-/* Narrow screens */
-@media (max-width: 480px) {
-  main { flex-direction: column; }
-  #guesses { min-height: 120px; }
+/* On-screen d-pad controls */
+.controls{
+  margin-top:auto;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+}
+.controls > button{
+  width:64px; height:44px; border-radius:10px;
+}
+.controls .row{
+  display:flex; gap:8px;
+}
+.controls .row button{
+  width:64px; height:44px; border-radius:10px;
+}
+
+/* Responsive: stack panel below canvas on small screens */
+@media (max-width: 860px){
+  main{ grid-template-columns: 1fr; }
+  #panel{ min-height: auto; }
 }
