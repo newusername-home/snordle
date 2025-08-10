@@ -1,9 +1,9 @@
-/* Word Snake — No Pause, Reset only; Max 10 crashes; Win stats; Current label; Extra gap
+/* Word Snake — Mobile swipe support, D-pad hidden on phones, compact layout support
    - Unlimited lives with auto 3s countdown after start and each crash (until max crashes).
    - Cap crashes at 10; on reaching cap, stop and prompt to Reset.
    - On win, show stats: number of guesses, max snake length, crashes.
    - Guarantees next correct-by-position letter is present.
-   - Mobile viewport stabilisation.
+   - Mobile viewport stabilisation; swipe gestures drive movement.
 */
 
 console.log("[Word Snake] Starting game.js…");
@@ -18,7 +18,7 @@ console.log("[Word Snake] Starting game.js…");
   if (!document.getElementById('words-loader')) {
     const s = document.createElement('script');
     s.id = 'words-loader';
-    s.src = 'words.js?v=15';
+    s.src = 'words.js?v=16';
     s.async = false;
     s.onload = () => hasWordList() ? startGame() : fail("words.js loaded but WORD_LIST missing");
     s.onerror = () => fail("Failed to load words.js (404?)");
@@ -67,9 +67,9 @@ function startGame(){
   let countdownActive=false, countdownSeconds=0, countdownTimerId=null;
   let lastTime=performance.now(), speedMs=140;
   let deaths=0, won=false, gameOver=false;
-  let maxSnakeLen = 1; // track maximum length reached (for stats)
+  let maxSnakeLen = 1; // for stats
 
-  // Safe init before first fit
+  // Safe init
   letters=[]; snake=[{x:Math.floor(COLS/2), y:Math.floor(ROWS/2)}];
   dir={x:1,y:0}; queuedDir=null;
   guessLetters=[]; guesses=[];
@@ -126,7 +126,6 @@ function startGame(){
       } else {
         clearCountdown();
         statusEl.textContent = 'Go!';
-        // resume only if not finished
         if (!won && !gameOver) requestAnimationFrame(loop);
       }
     },1000);
@@ -192,7 +191,6 @@ function startGame(){
       spawnLetters(1);
       updatePocket();
       ensureNextCorrectLetterAvailable();
-      // grew by 1 (no pop) → update max length
       if (snake.length > maxSnakeLen) maxSnakeLen = snake.length;
 
       if (guessLetters.length===5) commitGuess();
@@ -212,11 +210,9 @@ function startGame(){
       return;
     }
     statusEl.textContent = `Crash (${deaths}/${MAX_CRASHES}).`;
-    // centre snake; keep letters/current/guesses
     snake=[{x:Math.floor(COLS/2), y:Math.floor(ROWS/2)}];
     dir={x:1,y:0}; queuedDir=null;
     ensureNextCorrectLetterAvailable();
-    // Auto 3s resume
     startCountdown("Resuming in",3);
   }
 
@@ -236,7 +232,6 @@ function startGame(){
     if (isWin){
       won = true;
       clearCountdown();
-      // Stats summary
       const stats = [
         `You solved it!`,
         `Guesses: ${guesses.length}`,
@@ -309,8 +304,10 @@ function startGame(){
     requestAnimationFrame(loop);
   }
 
-  // Controls
+  // Controls: buttons (desktop/tablet)
   controlButtons.forEach(b=>b.addEventListener('click',()=>setDir(b.dataset.dir)));
+
+  // Controls: keyboard (desktop testing)
   window.addEventListener('keydown', e=>{
     if (gameOver || won || countdownActive) return;
     const k=e.key;
@@ -319,6 +316,27 @@ function startGame(){
     if (k==='ArrowLeft'||k==='a') setDir('left');
     if (k==='ArrowRight'||k==='d') setDir('right');
   });
+
+  // Controls: swipe (mobile)
+  let touchStartX=0, touchStartY=0;
+  const swipeThreshold = 30; // px
+  // Attach to canvas to avoid scrolling gesture conflicts
+  canvas.addEventListener('touchstart', (e)=>{
+    const t=e.changedTouches[0];
+    touchStartX=t.clientX; touchStartY=t.clientY;
+  }, {passive:true});
+  canvas.addEventListener('touchend', (e)=>{
+    if (gameOver || won || countdownActive) return;
+    const t=e.changedTouches[0];
+    const dx=t.clientX - touchStartX;
+    const dy=t.clientY - touchStartY;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > swipeThreshold) {
+      setDir(dx>0?'right':'left');
+    } else if (Math.abs(dy) > swipeThreshold) {
+      setDir(dy>0?'down':'up');
+    }
+  }, {passive:true});
+
   function setDir(d){
     const nd = d==='up'?{x:0,y:-1}:d==='down'?{x:0,y:1}:d==='left'?{x:-1,y:0}:{x:1,y:0};
     if (snake.length>1 && snake[0].x+nd.x===snake[1].x && snake[0].y+nd.y===snake[1].y) return;
